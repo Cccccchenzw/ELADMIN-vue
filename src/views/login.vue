@@ -5,7 +5,7 @@
         EL-ADMIN 后台管理系统
       </h3>
       <el-form-item prop="username">
-        <el-input v-model="loginForm.username" type="text" auto-complete="off" placeholder="账号">
+        <el-input v-model="loginForm.username" type="text" auto-complete="on" placeholder="账号">
           <svg-icon slot="prefix" icon-class="user" class="el-input__icon input-icon" />
         </el-input>
       </el-form-item>
@@ -56,13 +56,15 @@ export default {
       codeUrl: '',
       cookiePass: '',
       loginForm: {
-        username: 'admin',
-        password: '123456',
+        username: '',
+        password: '',
         rememberMe: false,
         code: '',
         uuid: ''
       },
       loginRules: {
+        // 'blur'失去焦点时，'change'数据改变时
+        //------没有进行任何输入时， 不会触发change，但一定会触发blur事件
         username: [{ required: true, trigger: 'blur', message: '用户名不能为空' }],
         password: [{ required: true, trigger: 'blur', message: '密码不能为空' }],
         code: [{ required: true, trigger: 'change', message: '验证码不能为空' }]
@@ -87,7 +89,7 @@ export default {
     }
   },
   created() {
-    // 获取验证码
+    // 获取验证码,此时后台已生成uuid
     this.getCode()
     // 获取用户名密码等Cookie
     this.getCookie()
@@ -97,6 +99,8 @@ export default {
   methods: {
     getCode() {
       getCodeImg().then(res => {
+        // codeUrl直接通过链接可以获取到验证码图片
+        // uuid通用唯一标识码，由后端生成，登录时于后端进行校验
         this.codeUrl = res.img
         this.loginForm.uuid = res.uuid
       })
@@ -105,6 +109,8 @@ export default {
       const username = Cookies.get('username')
       let password = Cookies.get('password')
       const rememberMe = Cookies.get('rememberMe')
+      console.log("此刻浏览器中存储的数据为：");
+      console.log("username ",username," password: ",password," rememberMe: ",rememberMe);
       // 保存cookie里面的加密后的密码
       this.cookiePass = password === undefined ? '' : password
       password = password === undefined ? this.loginForm.password : password
@@ -112,6 +118,7 @@ export default {
         username: username === undefined ? this.loginForm.username : username,
         password: password,
         rememberMe: rememberMe === undefined ? false : Boolean(rememberMe),
+        //后端每次返回的验证码都可能是不一样的，所以验证码答案在这儿置空
         code: ''
       }
     },
@@ -124,12 +131,17 @@ export default {
           code: this.loginForm.code,
           uuid: this.loginForm.uuid
         }
+        console.log("登录时用户信息：",user);
+        console.log("cookiePass: ",this.cookiePass);
         if (user.password !== this.cookiePass) {
+          // 加密操作
           user.password = encrypt(user.password)
+          console.log("加密后的password：",user.password);
         }
         if (valid) {
           this.loading = true
           if (user.rememberMe) {
+            // expires:过期时间， Config.passCookieExpires为配置文件中设置的天数
             Cookies.set('username', user.username, { expires: Config.passCookieExpires })
             Cookies.set('password', user.password, { expires: Config.passCookieExpires })
             Cookies.set('rememberMe', user.rememberMe, { expires: Config.passCookieExpires })
@@ -153,6 +165,7 @@ export default {
     },
     point() {
       const point = Cookies.get('point') !== undefined
+      console.log("此时'point'：", Cookies.get('point'));
       if (point) {
         this.$notify({
           title: '提示',
